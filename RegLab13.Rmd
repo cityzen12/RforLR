@@ -1,0 +1,106 @@
+---
+title: "时间序列回归"
+output: 
+  html_notebook:
+    toc: true
+---
+
+# 预备
+
+阅读本周讲义，了解经典线性模型及OLS估计应用于时间序列数据的假设条件.
+
+## 练习一
+
+分析数据 `intdef`.
+
+```{r}
+library("wooldridge")
+data("intdef")
+```
+
+* 拟合模型线性模型`i3 ~ inf + def`，观察残差图；
+```{r}
+fit1.1 = lm(i3 ~ inf + def, data = intdef)
+plot(resid(fit1.1))
+summary(fit1.1)
+```
+
+* 计算`inf`和`def`之间的相关系数，评论；
+```{r}
+cor(intdef$inf, intdef$def)
+```
+* 答：相关性并不强
+
+* 加入`inf`和`def`的一阶滞后项，重估模型，观察残差序列图；
+
+* 延迟项是否显著？
+
+* 比较加入延迟项前后通货膨胀率对利率的长期倾向(LRP)；
+
+* 美联储1979年10月放弃了以货币供给为目标的政策，开始以短期利率为目标，定义一个在1979年之后为1的虚拟变量，纳入模型中，分析政策改变前后的利率方程是否发生了改变. 
+
+* 观察上述模型的残差序列图；
+
+## 练习二
+
+分析数据`consump`.
+
+```{r}
+data("consump")
+```
+
+* 估计非耐用品和服务消费对数增长率与人均可支配收入对数增长率之间的简单线性模型,即
+被解释变量为`c`取对数再差分，解释变量为`y`取对数再差分；
+```{r}
+fit2.1 = lm(diff(log(c)) ~ diff(log(y)), data = consump)
+summary(fit2.1)
+```
+
+* 观察残差图并解释回归结果；
+```{r}
+plot(resid(fit2.1))
+```
+
+* 答：残差没有明显相关性，拟合程度良好，$R^2=0.68$。
+
+* 在模型里加入人均可支配收入增长率的一阶滞后，重估模型并观察残差，评论滞后对消费增长的影响；
+
+* 继续在模型里加入实际利率`r3`,利率对消费增长是否有显著影响？
+
+## 练习三
+
+分析数据`approval`.  这是小布什总统任职期间的支持率`approve`数据.
+
+```{r}
+data("approval")
+```
+
+* 计算支持率的取值范围和平均值；
+```{r}
+print(c(min(approval$approve), max(approval$approve)))
+print(mean(approval$approve))
+```
+
+* 估计线性回归模型`approve ~ log(cpifood) + log(rgasprice) + unemploy`
+```{r}
+fit3.1 = lm(approve ~ lcpifood + lrgasprice + unemploy, data = approval)
+summary(fit3.1)
+```
+
+* 解释回归系数的含义,评价实际显著性和统计显著性；
+
+* 加入变量`sep11`(911虚拟变量)和`iraqinvade`(伊拉克战争虚拟变量)，重新估计模型，它们是否显著，评论结果
+```{r}
+fit3.2 = lm(approve ~ lcpifood + lrgasprice + unemploy + iraqinvade + X11.Sep, data = approval)
+summary(fit3.2)
+```
+
+* 评价上一步加入的虚拟变量对其他变量参数估计的影响；
+
+* 继续加入变量`log(sp500)`（股票指数）,证券市场的表现是否影响总统的支持率？
+```{r}
+fit3.3 = lm(approve ~ lcpifood + lrgasprice + unemploy + iraqinvade + X11.Sep + lsp500, data = approval)
+summary(fit3.3)
+```
+
+* 答：$p_{value} = 0.859$很显然股票市场的参数对支持率的影响非常的不显著。

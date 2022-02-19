@@ -1,0 +1,272 @@
+---
+title: "RLAB03：简单线性模型"
+author: "2019193014-朱子灏"
+output:
+  html_document:
+    df_print: paged
+---
+
+## 实验的目标
+
+* 学会用RMARKDOWN写试验报告；
+* 掌握利用R来画散点图和散点图矩阵；
+* 掌握利用R基本操作来计算OLS估计，拟合值，残差；
+* 学会调用`lm`函数拟合简单线性回归模型；
+* 学会使用泛型函数`summary,coef,resid`等提取拟合结果；
+
+## 实验一
+
+分析数据`Forbes{alr4}`,这个数据是英国物理学家Forbes所收集，他试图通过水的沸点来估计海拔高度，他知道用气压计测得的大气压可以估算海拔，高度越高，气压越低。数据中心的变量如下
+* bp： 沸点，单位华氏度；
+* pres：大气压，单位英寸汞柱；
+* lpres:log(pres,base=10)
+现在我们以这个数据来学习简单线性回归模型；
+
+* 绘散点图`pres~bp`，横坐标标为`xlab="Boiling Point (deg. F)`，纵坐标标为`ylab="Pressure (in Hg)`
+```{r}
+library(alr4)
+data = data('Forbes')
+plot(pres ~ bp, data = Forbes, xlab = 'Boiling Point (deg. F)', ylab = 'Pressure (in Hg)')
+```
+
+* 拟合线性回归模型，记为`fit1`，用`summary`查看回归结果；
+```{r}
+fit1 = lm(pres~bp, data = Forbes)
+summary(fit1)
+```
+
+* 在散点图上标记样本回归线，颜色设为`red`；
+```{r}
+plot(pres ~ bp, data = Forbes, xlab = 'Boiling Point (deg. F)', ylab = 'Pressure (in Hg)')
+abline(fit1, col = 'red')
+```
+
+* 从`fit1`中抽取残差并记为`res1`，并绘制`res~bp`的散点图，用红色虚线标出均值；
+```{r}
+res1 = resid(fit1)
+plot(res1 ~ bp, data = Forbes, ylab = 'residuals')
+abline(0, 0, col = 'red', lty =2)
+```
+* 思考这个模型是否恰当；
+不恰当，残差太大了
+
+* 用`lpres`替换上述`pres`作为被解释变量，重复上述过程；
+```{r}
+plot(lpres ~ bp, data = Forbes)
+fit2 = lm(lpres ~ bp, data = Forbes)
+summary(fit2)
+abline(fit2, col = "red")
+res2 = resid(fit2)
+plot(res2 ~ bp, data=Forbes)
+abline(0,0,col="red",lty=2)
+```
+
+* 现在用`x`来`bp`变量，用`y`来记`lpres`，考虑简单线性回归模型
+```{r}
+x = Forbes$bp
+y = Forbes$lpres
+```
+$$ y = \beta_0+\beta_1x+u,~~ E(u|x)=0,~~Var(u|x)=\sigma^2 $$
+
+* 计算$\bar x,\bar y,Sxx,Syy,Sxy$的值
+```{r}
+mean_x = mean(x)
+mean_y = mean(y)
+Sxx = sum((x - mean_x) ^ 2)
+Syy = sum((y - mean_y) ^ 2)
+Sxy = sum((x - mean_x) * (y - mean_y))
+print(c(mean_x, mean_y, Sxx, Syy, Sxy))
+```
+* 计算$\hat\beta_1,\hat\beta_1$
+```{r}
+beta1 = Sxy / Sxx
+beta0 = mean_y - mean_x * beta1
+print(c(beta1, beta0))
+```
+* 计算$SSres,SSreg$
+```{r}
+yhat = beta0 + beta1 * x
+uhat = y - yhat
+SSres = sum(uhat ^ 2)
+SSreg = Syy-SSres
+print(c(SSres, SSreg))
+```
+
+* 计算$\hat\sigma^2,\hat\sigma$
+```{r}
+sigma2hat = SSres / (dim(Forbes)[1]-2)
+sigmahat = sqrt(sigma2hat)
+print(c(sigma2hat, sigmahat))
+```
+* 计算$R^2$
+```{r}
+R2 = SSreg / Syy
+print(R2)
+```
+* 将上述结果和前面`lm`中的结果进行比较验证；
+
+
+## 实验二
+
+`catholic{wooldridge}`数据中包含美国1988年7000多名学生的考试成绩信息，变量math12和read12分别代表
+他们的数学和阅读标准化成绩.考虑模型
+$$math12 = \beta_0+\beta_1read12+u$$
+完成下列任务. 注意请直接应用`lm`函数来完成计算，不再像实验一那样用公式计算.
+
+* 加载数据
+```{r}
+library(wooldridge)
+data("catholic")
+```
+
+* 查看数据的前5条样本
+```{r}
+catholic[1:5,]
+```
+
+
+* 利用帮助查看数据的变量名及其含义
+```{r}
+?catholic
+```
+
+
+* 有多少个样本？
+```{r}
+print(dim(catholic)[1])
+```
+
+* 计算`math12`的平均值和标准差
+```{r}
+mean_math12 = mean(catholic$math12)
+ds_math12 = sd(catholic$math12)
+print(c(mean_math12, ds_math12))
+```
+
+* 计算`read12`的平均值和标准差
+```{r}
+mean_read12 = mean(catholic$read12)
+ds_read12 = sd(catholic$read12)
+print(c(mean_read12, ds_read12))
+```
+
+
+* 计算`math12`和`read12`之间的样本相关系数
+```{r}
+cor(catholic$math12, catholic$read12)
+```
+
+
+* 用`plot`函数绘制上述两个变量之间的散点图
+
+```{r}
+plot(catholic$math12 ~ catholic$read12)
+```
+
+
+* 用`smoothScatter`函数绘制用密度表示的散点图
+```{r}
+smoothScatter(catholic$math12, catholic$read12)
+```
+
+
+* 用`lm`函数来拟合模型，并用`summary`函数来展示拟合结果
+```{r}
+fit1 = lm(catholic$math12 ~ catholic$read12)
+summary(fit1)
+```
+
+* 解释斜率系数的实际意义；
+
+答：
+
+
+* 用`smoothScatter`函数绘制用密度表示的散点图，并在上面添加拟合线
+```{r}
+beta = fit1
+smoothScatter(catholic$math12, catholic$read12)
+abline(beta, col = 'red')
+```
+
+* 交换解释变量和被解释变量的位置，重新拟合一个模型，展示拟合结果
+```{r}
+fit2 = lm(catholic$read12 ~ catholic$math12)
+summary(fit2)
+```
+
+* "根据模型发现，要提高学生的数学成绩，只需要提高他们的阅读成绩，因此我们应该聘请更多的语文老师"，这一说法是否恰当，为什么？说说你的看法.
+
+答：
+
+
+## 试验三
+
+分析数据`UN11{alr4}`
+
+* 查看数据中的变量含义，命令为`?UN11`
+```{r}
+data(UN11)
+```
+
+* 绘制散点图 `fertility~ppgdp`
+```{r}
+plot(fertility ~ ppgdp, data = UN11)
+```
+
+* 绘制散点图`log(fertility)~log(ppgdp)`
+```{r}
+plot(log(fertility) ~ log(ppgdp), data = UN11)
+``` 
+
+* 拟合简单线性模型`log(fertility)~log(ppgdp)`，在散点图上添加拟合线
+```{r}
+fit2 = lm(log(fertility) ~ log(ppgdp), data = UN11)
+summary(fit2)
+plot(log(fertility) ~ log(ppgdp), data = UN11)
+abline(fit2, col = 'red')
+```
+
+* 绘制散点图`lifeExpF ~ log(ppgdp)`
+```{r}
+plot(lifeExpF ~ log(ppgdp), data = UN11)
+```
+
+* 绘制散点图`lifeExpF ~ fertility`
+```{r}
+plot(lifeExpF ~ fertility, data = UN11)
+```
+
+* 绘制变量`fertility, lifeExpF, log(ppgdp)`的散点图矩阵
+```{r}
+data(UN11)
+pairs(~ fertility + lifeExpF + log(ppgdp), data = UN11)
+```
+
+* 拟合`lifeExpF ~ log(ppgdp)`，添加拟合线，残差记为`res1`，绘制残差图`res1~log(ppgdp)`
+```{r}
+fit = lm(lifeExpF ~ log(ppgdp), data = UN11)
+plot(lifeExpF ~ log(ppgdp), data = UN11)
+abline(fit, col = 'red')
+res1 = resid(fit)
+plot(res1 ~ log(ppgdp), data = UN11)
+```
+
+* 拟合`res1~fertility`
+```{r}
+fit1 = lm(res1 ~ fertility, data = UN11)
+plot(res1 ~ fertility, data = UN11)
+abline(fit1)
+```
+
+* 拟合`lifeExpF ~ fertility`
+```{r}
+fit2 = lm(lifeExpF ~ fertility, data = UN11)
+plot(lifeExpF ~ fertility, data = UN11)
+abline(fit2)
+```
+* 拟合`lifeExpF ~ log(ppgdp) + fertility`
+```{r}
+fit3 = lm(lifeExpF ~ (log(ppgdp) + fertility), data = UN11)
+summary(fit3)
+```
+* 比较和思考

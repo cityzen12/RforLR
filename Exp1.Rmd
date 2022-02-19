@@ -1,0 +1,28 @@
+---
+title: "Untitled"
+author: "朱子灏(2019193014)"
+date: "2021/9/9"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+sp500 = read.table('D:/study/data/m-sp2691.txt', header = T)
+x = ts(sp500[,2], start = 1926, end = 1991, frequency = 12)
+
+head(window(x, start = 1926, end = 1935))
+
+plot(x)
+title("The Monthly Return of S&P 500 Index, 1926 to 1991")
+```
+
+```{r}
+vix = read.table('D:/study/data/d-vix0411.txt', header = T)
+date = make_date(vix$year, vix$mon, vix$day)
+vix = xts(vix[,7], order.by = date)
+head(vix)
+plot(vix)
+```

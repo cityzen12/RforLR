@@ -1,0 +1,173 @@
+---
+title: 'RLab: 线性模型扩展'
+subtitle: 第六章
+author: 朱子灏2019193014
+output:
+  html_document:
+    df_print: paged
+---
+
+## 预备
+
+* 变量标准化；
+
+* 函数形式：对数变换和多项式回归；
+
+* 交互效应；
+
+* 模型比较与选择：R方和调整的R方；
+
+* 预测
+```{r}
+require(wooldridge)
+```
+
+## 实验一
+
+教材中的例6.3，预测期末考试成绩，数据为`attend`, 先用`?attend`查看数据中的变量含义，然后循下列步骤进行分析.
+
+* 用出勤百分比，读大学之前的GPA，ACT来解释期末考试标准化成绩，考虑模型下列二次模型
+
+$$stndfnl=\beta_0+\beta_1atndrte+\beta_2priGPA+\beta_3ACT+\beta_4priGPA^2+\beta_5ACT^2+\beta_6priGPA\cdot atndrte+u$$
+
+
+* 拟合上述模型；
+```{r}
+fit1 = lm(stndfnl ~ atndrte + priGPA + ACT + I(priGPA ^ 2) + I(ACT ^ 2) + I(priGPA * atndrte), data = attend)
+summary(fit1)
+```
+
+* 检验模型中的两个平方项是否有必要；
+```{r}
+fit1.1 = lm(stndfnl ~ atndrte + priGPA + ACT + I(priGPA * atndrte), data = attend)
+summary(fit1.1)
+anova(fit1, fit1.1)
+```
+
+* 检验出勤率`atndrte`对`stndfnl`的影响是否显著；
+```{r}
+beta1.hat = -0.006713
+se = 1.360319
+t = beta1.hat/se
+pvalue = pt(t, df = nrow(wage2) - 6 - 1, lower.tail = F)
+pvalue
+```
+* 答：不显著
+
+* 求出勤率`atndrte`对`stndfnl`的偏效应表达式；
+
+$$APE_{atndrte} = \hat\beta_1 + \hat\beta_6priGPA$$
+
+
+* 计算`priGPA`的样本均值；
+```{r}
+mean(attend$priGPA)
+```
+
+* 计算`priGPA`取样本均值时，`atndrte`对`stndfnl`的偏效应；
+```{r}
+APE1 = -0.006713 + 0.005586 * mean(attend$priGPA)
+print(APE1)
+```
+
+* 求上述偏效应的95%置信区间；
+```{r}
+APE2 = -0.006713 + 0.005586 * attend$priGPA
+t.test(APE2)
+```
+* 答：95%的置信区间是`[0.007507618, 0.007965832]`
+
+* 求`priGPA`对`stndfnl`的偏效应表达式；
+
+$$APE_{priGPA} = \hat\beta_2 + 2\hat\beta_4priGPA + \hat\beta_6atndrte$$
+
+* 估计当`priGPA=2.59`,`atndrte=82`时，`priGPA`对`stndfnl`的偏效应；
+```{r}
+APE3 = -1.628540 + 2 * 0.295905 * 2.59 + 0.005586 * 82
+APE3
+```
+
+* 考虑模型
+
+$$stndfnl=\beta_0+\beta_1atndrte+\theta_2 priGPA+\beta_3ACT+\beta_4(priGPA-2.59)^2+\beta_5ACT^2+\beta_6priGPA\cdot(atndrte-82)+u$$
+利用这个模型来求上一问里偏效应估计的标准误差;
+```{r}
+fit1.2 = lm(stndfnl ~ atndrte + priGPA + ACT + I((priGPA - 2.59) ^ 2) + I(ACT ^ 2) + I(priGPA * (atndrte - 82)), data = attend)
+summary(fit1.2)
+```
+```{r}
+#APE3 = 
+```
+
+
+## 实验二
+
+分析数据`wage2`
+```{r}
+head(wage2)
+```
+* 比较`wage`和`log(wage)`的概率直方图，哪一个更接近正态分布？
+```{r}
+hist(wage2$wage, probability = T, xlim = c(min(wage2$wage), max(wage2$wage)))
+m1 = mean(wage2$wage)
+s1 = sd(wage2$wage)
+x1 = seq(min(wage2$wage), max(wage2$wage), 0.2)
+fx1 = dnorm(x1, m1, s1)
+lines(x1, fx1, col = 'red')
+```
+
+```{r}
+hist(wage2$lwage, probability = T, xlim = c(min(wage2$lwage), max(wage2$lwage)))
+m2 = mean(wage2$lwage)
+s2 = sd(wage2$lwage)
+x2 = seq(min(wage2$lwage), max(wage2$lwage), 0.2)
+fx2 = dnorm(x2, m2, s2)
+lines(x2, fx2, col = 'red')
+```
+
+* 考虑回归模型
+
+$$log(wage) = \beta_0+\beta_1educ +\beta_2exper +\beta_3 educ*exper+u$$
+
+证明在此模型下教育的边际回报为：$\beta_1+\beta_3exper$；
+
+* 拟合上述模型，并检验：工作年限越长，教育的边际回报越高.
+```{r}
+fit2 = lm(lwage ~ educ + exper + I(educ * exper), data = wage2)
+summary(fit2)
+```
+* 对于工作经验为10的人群，其教育边际回报$\theta_1 = \beta_1+10\beta_3$，求$\theta_1$的95%置信区间. 
+
+* 分别估计`educ=12`和`educ=16`人群的工资增幅，他们之间的差异为多大？这个差异显著吗？
+* 答：差异不大
+
+## 实验三
+
+分析数据`hprice1`
+
+* 估计模型
+
+$$price = \beta_0+\beta_1lotsize+\beta_2sqrft+\beta_3bdrms+u$$
+```{r}
+fit3 = lm(price ~ lotsize + sqrft + bdrms, data = hprice1)
+summary(fit3)
+```
+* 预测`lotsize=10000,sqrft=2300,bdrms=4`时的期望房价；
+```{r}
+price = 10000 * 2.068e-03 + 2300 * 1.228e-01 + 4 * 1.385e+01 - 2.177e+01 
+price
+```
+* 求上述预测的95%置信区间；
+```{r}
+print(c(price - 1.96 * (sd(hprice1$price) / sqrt(nrow(hprice1))), price + 1.96 * (sd(hprice1$price) / sqrt(nrow(hprice1)))))
+```
+
+* 假设某房产的参数为`lotsize=10000,sqrft=2300,bdrms=4`，记其售价为$price^0$,求$price^0$的95%预测区间；
+
+提示：前者是对$\beta^Tx^0$的置信区间，后者是对$\beta^Tx^0+u^0$的预测区间;
+```{r}
+set = data.frame(lotsize = 10000, sqrft = 2300, bdrms = 4)
+pred = predict(fit3, newdata = set, interval = 'prediction', level = 0.05)
+pred[1]
+pred[2:3]
+```

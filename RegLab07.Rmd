@@ -1,0 +1,176 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+author: '朱子灏2019193014'
+---
+
+## 预备
+
+* 复习多元线性模型的基本假设；
+* 回归OLS估计及其标准差；随机误差方差估计；
+* 复习完全共线性和多重共线性；
+* 复习回归中遗漏变量对估计的影响；
+
+## 实验一
+
+第3章课后习题C1，数据为`bwght`，该项研究的目的是评估孕妇怀孕期间抽烟对婴儿健康的影响。对婴儿健康的评估方式之一是看婴儿的出生体重，过低的出生体重会使得婴儿有感染各种疾病的危险。由于除了抽烟之外，其它影响婴儿出生体重的因素也可能影响抽烟行为，因此我们需要同时考虑控制这些因素。例如，高家庭收入通常会使得母亲得到更好的产前照顾和更好的营养，能够表示这一点的一个模型为
+$$bwght = \beta_0+\beta_1cigs+\beta_2faminc+u$$
+
+* $\beta_2$的符号最可能是什么？说说理由；
+答：正，钱越多孩子营养更好
+
+* 你是否认为`cigs`和`faminc`可能相关？正相关还是负相关？说明理由；
+答：有可能，抽烟跟经济条件有关
+
+* 分别估计包含`faminc`和不包含`faminc`的模型，报告结果；
+
+* 根据拟合结果，讨论纳入`faminc`变量是否会显著改变`cigs`对`bwght`的影响估计.
+答：感觉影响不大
+
+```{r,echo=TRUE}
+library("wooldridge")
+data("bwght")
+head(bwght)
+```
+```{r}
+lm.fit1.1 = lm(bwght ~ cigs + faminc, data = bwght)
+summary(lm.fit1.1)
+cor(bwght$faminc, bwght$cigs)
+```
+```{r}
+lm.fit1.2 = lm(bwght ~cigs, data = bwght)
+summary(lm.fit1.2)
+```
+
+
+## 实验二
+
+第3章课后习题C9，数据为`charity`.
+
+```{r}
+data("charity")
+head(charity)
+```
+
+用命令`?charity`查看各变量的含义；回答下列问题
+
+* 该数据有多少个样本，多少个变量，了解变量`gift,mailsyear,giftlast,propresp`的含义；
+
+答：有4268个样本，8个变量
+
+* 平均捐赠数量(`gift`)是多少？有多少人完全没有任何捐赠？
+```{r}
+print(mean(charity$gift))
+length(charity$gift[charity$gift == 0])
+```
+
+* 每年的平均邮寄数量(`mailsyear`)是多少？最大值和最小值多少？
+```{r}
+print(c(mean(charity$mailsyear), max(charity$mailsyear), min(charity$mailsyear)))
+```
+
+* 估计下列模型，报告回归结果
+$$gift = \beta_0+\beta_1mailsyear+u$$
+```{r}
+lm.fit2.1 = lm(gift ~ mailsyear, data = charity)
+summary(lm.fit2.1)
+```
+
+
+* 对上述简单线性模型，解释回归系数的含义；如果每邮寄一封邮件花费1荷兰盾，那么慈善组织在每单邮寄上是赚取了净收益？
+答：mailsyear每增加1，平均捐赠增加2.65；如果每邮寄一封邮件的花费是1，那么慈善组织在每单邮寄上赚取的平均净收益为1.65
+
+* 现在估计模型，报告回归结果；
+$$gift = \beta_0+\beta_1mailsyear+\beta_2giftlast +\beta_3propresp+u$$
+```{r}
+lm.fit2.2 = lm(gift ~ mailsyear + giftlast + propresp, data = charity)
+summary(lm.fit2.2)
+```
+
+* 比较上述两个模型的估计结果；
+答：mailstear的系数变小了
+
+* 解释`mailsyear`的系数；
+答：保持其它变量不变的情况下，mailsyear+1，捐赠多2.17
+
+* 解释`propresp`的系数，注意该变量的单位； 
+答：保持其它变量不变的情况下，propresp+0.1，捐赠多1.5
+
+
+* 加入变量`avggift`到上一个模型，此时`mailsyear`的系数有什么变化？
+```{r}
+lm.fit2.3 = lm(gift ~ mailsyear + giftlast + propresp + avggift, data = charity)
+summary(lm.fit2.3)
+```
+答：mailsyear变小了
+
+* 你认为上述模型中发生了什么？
+
+## 实验三
+
+第三章课后习题C10，数据为`htv`
+
+```{r}
+data("htv")
+head(htv)
+```
+
+数据包含1991年工作的1230个男性的工资，受教育水平，父母的受教育水平以及其它信息。
+
+用命令`?htv`查看各变量的含义；回答下列问题
+
+* `educ`的取值范围是多少？最高学历为12年级的人占多大比例？这些人以及他们的父母的受教育水平是否高于平均水平？
+```{r}
+summary(htv$educ)
+
+```
+
+* 估计模型
+$$educ = \beta_0+\beta_1motheduc +\beta_2fatheduc+u$$
+```{r}
+lm.fit3.1 = lm(educ ~ motheduc + fatheduc, data = htv)
+summary(lm.fit3.1)
+```
+
+
+* `educ`的变异有多大程度可以由他们父母的受教育水平来解释？
+答：$R^2$ = 0.25'，所以有25%可以解释
+
+* 将变量`abil`(认知能力)纳入模型中去，估计模型；控制父母受教育水平之后，认知能力是否有助于解释教育程度的差异？
+```{r}
+lm.fit3.2 = lm(educ ~ motheduc + fatheduc + abil, data = htv)
+summary(lm.fit3.2)
+```
+答：可以看到$R^2$ = 0.42, 也就是说有42%可以被解释了，可以表明有助于解释差异
+
+
+* 考虑模型
+$$educ = \beta_0+\beta_1motheduc +\beta_2fatheduc+\beta_3abil+\beta_4abil^2+u$$
+并估计；
+```{r}
+lm.fit3.3 = lm(educ ~ motheduc + fatheduc + abil + I(abil^2), data =  htv)
+summary(lm.fit3.3)
+```
+
+
+* 求`educ`取得最小值是值时的`abil`的值
+答：`-4`
+
+* 有多少人的认知能力取值低于上述最小值？
+```{r}
+sum(htv$abil< (-4))
+```
+
+* 绘制`educ`和`abil`之间的关系图，此时`motheduc`和`fatheduc`分别取它们的平均值.
+```{r}
+mm = mean(htv$motheduc)
+fm = mean(htv$fatheduc)
+x = sort(htv$abil)
+yy = coef(lm.fit3.3)
+y = yy[1] + yy[2] * mm + yy[3] * fm + yy[4] * x + yy[5] * x ^ 2
+plot(x, y, type = 'l', xlab = 'abil', ylab = 'educ')
+plot(resid(lm.fit3.3) ~ htv$abil)
+```
+

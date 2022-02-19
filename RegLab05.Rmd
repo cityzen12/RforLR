@@ -1,0 +1,207 @@
+---
+title: "RegLab05：多元线性模型及其OLS估计"
+author: "2019193014-朱子灏"
+output:
+  html_document:
+    df_print: paged
+---
+
+## 预备
+
+* 复习本周讲义
+
+* 复习上周上机
+
+* 复习多元线性模型的OLS估计原理
+
+* 回顾设计阵，OLS估计，拟合值向量，残差值向量的表达式
+
+* 回顾残差平方和，回归平方和，总平方和以及R方的计算公式
+
+## 实验一
+
+重复例3.1中的估计和分析. 即考虑大学GPA的决定因素，数据为`gpa1`，模型为
+
+$$colGPA = \beta_0+\beta_1 hsGPA+\beta_2ACT+u$$
+
+* 首先加载数据集和数据
+
+```{r}
+library(wooldridge)
+data(gpa1)
+head(gpa1)
+dim(gpa1)
+```
+
+* 查看数据中的变量说明
+
+```{r}
+#?gpa1
+```
+
+* 我们先用公式来计算OLS估计，被解释变量向量记为`y`，设计阵记为`X`
+
+先学习一下函数的`rep`和`cbind`的用法
+
+```{r}
+rep(0,5)
+a = 1:5
+b = rep(1,5)
+c = c(1,4,5,2,1)
+X =cbind(a,b,c)
+t(X)
+```
+
+
+```{r}
+n = dim(gpa1)[1]
+y = gpa1$colGPA
+X = cbind(rep(1, n), gpa1$hsGPA, gpa1$ACT)
+```
+
+* 计算OLS估计，看跟教材结果是否一致，矩阵乘法为`%*%`，矩阵求逆运算为`solve`
+```{r}
+beta.hat = solve(t(X) %*% X) %*% t(X) %*% y
+beta.hat
+```
+
+* 解释回归系数的实际含义
+
+答：截距是1.28，其他一定时，高中GPA+1，大学GPA+0.45；ACT成绩+1，大学GPA+0.009
+
+
+* 计算拟合值和残差值，并以拟合值为横坐标，残差值为纵坐标，绘制散点图
+
+```{r}
+y.hat = X %*% beta.hat
+u.hat = y - y.hat
+plot(y.hat, u.hat, main = "Residuals v.s.Fitted Values")
+```
+
+
+* 用`lm`函数直接拟合多元线性模型
+
+```{r}
+fit.lm = lm(colGPA ~ hsGPA + ACT, data = gpa1)
+fit.lm
+```
+
+
+* 查看`lm`输出中的对象名称
+```{r}
+names(fit.lm)
+```
+
+* 获取`lm`输出中的回归系数估计，残差值和拟合值
+```{r}
+coef.lm = fit.lm$coefficients
+res.lm = fit.lm$residuals
+fitted.lm = fit.lm$fitted.values
+plot(fitted.lm, res.lm)
+```
+
+* 也可以通过函数`coef,fitted,resid`来获取获取`lm`输出中的回归系数估计，残差值和拟合值
+
+```{r}
+coef.lm = coef(fit.lm)
+res.lm = resid(fit.lm)
+fitted.lm = fitted(fit.lm)
+plot(fitted.lm, res.lm)
+```
+
+* 利用上一步的结果计算R方
+```{r}
+SSres = sum(res.lm ^ 2)
+Syy = sum((y - mean(y)) ^ 2)
+SSreg = Syy - SSres
+R_Squated = SSreg / Syy
+print(c(SSres, SSreg, Syy, R_Squated))
+```
+
+* 解释R方的实际含义，阅读教材例3.4后的分析.
+
+答：R方为回归平方和与总离差平方和的比值
+
+* 如果高中平均GPA为3.4，平均ACT成绩为24.2，那么样本中大学平均GPA为多少？
+
+```{r}
+predict(fit.lm, data.frame(hsGPA = 3.4, ACT = 24.2))
+```
+
+
+## 实验二
+```{r}
+data(wage1)
+head(wage1)
+```
+
+练习估计例3.2中的模型，数据集为`wage1`，模型为
+
+$$log(wage)=\beta_0+\beta_1educ+\beta_2exper+\beta_3tenure+u$$
+直接应用`lm`函数估计上述模型，并解释回归系数的实际含义，阅读教材中该例的分析
+
+* 估计模型
+
+```{r}
+lm.fit2 = lm(lwage ~ educ + exper + tenure, data = wage1)
+lm.fit2
+```
+
+
+* 解释回归系数的实际含义
+
+答：截距0.28，其他不变时：教育年限+1，薪水的对数+0.09；工作经验+1，薪水的对数+0.004；在职年限+1，薪水的对数+0.02
+
+* 如果工作经验(exper)和在职年限(tenure)同时增加1年，则对工资的影响是多大？
+
+答：lwage+0.026188, wage+1.26
+
+## 实验三
+
+考虑`CEOSAL2`这个数据，考虑年salary(年薪)受企业销售额(sales)，市值(mktval)和profits(盈利)的影响. 本题为教材第三章习题C3.
+
+(1) 加载数据，并计算样本量
+```{r}
+data("ceosal2")
+head(ceosal2)
+#?ceosal2
+```
+
+(2) 如果假设salary对sales和mktval具有常数弹性，应该如何假设模型？估计模型并报告回归结果.
+
+```{r}
+fit1 = lm(salary ~ sales + mktval, data = ceosal2)
+summary(fit1)
+```
+
+
+(3) 在上面的模型里增加profits变量，该变量为什么不能以对数形式进入模型？估计该模型
+
+```{r}
+fit2 = lm(salary ~ sales + mktval + profits, data = ceosal2)
+summary(fit2)
+```
+
+答：利润有赚有赔，不能用对数
+
+(4) 报告上述模型中的判决系数，这些企业业绩变量是否解释了CEO薪水变异中的大部分？
+
+答：$R^2$太小，不能解释
+
+(5) 在模型`fit2`里增加变量ceoten(任职CEO的年限)，估计该模型。回答：在保持其他变量不变时，每延长任职年限一年，薪水平均会增加多少？
+
+```{r}
+fit3 = lm(salary ~ sales + mktval + profits + ceoten, data = ceosal2)
+summary(fit3)
+```
+
+答：薪水会增加12.7
+
+(6) 求log(mktval)和profits之间的相关系数。变量之间高度相关吗？这对OLS估计有何影响？
+
+```{r}
+cor(log(ceosal2$mktval), ceosal2$profits)
+```
+
+答：相关度较高，相关度越强，OLS估计的结果越精确
+

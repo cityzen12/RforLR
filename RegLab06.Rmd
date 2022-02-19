@@ -1,0 +1,285 @@
+---
+title: "实验：多元线性模型II"
+author: "朱子灏-2019193014"
+output:
+  html_document:
+    df_print: paged
+---
+
+## 预备
+
+* 复核上周上机参考解答；
+* 复习多元线性模型的矩阵表示和OLS估计
+* 回顾OLS估计的协方差矩阵
+* 回顾随机误差方差的估计以及OLS估计的标准误
+
+## 实验一
+
+我们以数据`lawsch85`为例来演示OLS估计及其标准误的计算过程，重现教材第3章习题16中的结果.
+我们先加载并熟悉一下该数据
+
+```{r}
+library(wooldridge)
+data("lawsch85")
+head(lawsch85)
+```
+
+```{r}
+?lawsch85
+```
+
+```{r}
+dim(lawsch85)
+```
+
+
+该数据包含了美国156所法学院毕业生起薪的调查数据，主要变量包含：
+
+`rank`：排名
+
+`salary`：起薪中位数
+
+`GPA`：GPA中位数
+
+`age`：法学院的办学历史，单位为年
+
+先数据清洗
+```{r}
+data = lawsch85[, c(1, 2, 5)]
+data = na.omit(data)
+dim(data)[1]
+```
+
+* 我们先来实现第一个模型(lsalary ~ rank + GPA)的参数估计结果
+
+```{r}
+n = dim(data)[1]
+X = cbind(rep(1, n), data$rank, data$GPA)
+y = log(data$salary)
+beta = solve(t(X) %*% X) %*% t(X) %*% y
+beta
+```
+
+* 计算随机误差方差的估计
+
+```{r}
+yhat = X %*% beta
+uhat = y - yhat
+RSS = sum(uhat ^ 2)
+k = 2
+df =  n - k -1
+sigma2 = RSS/df 
+sigma2
+```
+
+* 计算OLS估计的标准误差
+
+```{r}
+beta.cov = sigma2 * solve(t(X) %*% X)
+beta.var = diag(beta.cov)
+beta.se = sqrt(beta.var)
+list(beta.cov = beta.cov, beta.var = beta.var, beata.se = beta.se)
+```
+
+* 计算R方
+
+```{r}
+TSS = sum((y - mean(y)) ^ 2)
+ESS = sum((yhat - mean(yhat)) ^ 2) 
+R2 = ESS/TSS 
+R2
+```
+
+* 用`lm`函数直接实现模型估计
+
+```{r}
+fit1 = lm(log(salary) ~ rank + GPA, data = data)
+summary(fit1)
+```
+
+* 用`lm`函数直接实现第二个模型(lsalary ~ rank + GPA + age)的估计
+
+
+```{r}
+fit2 = lm(lsalary ~ rank + GPA + age, data = lawsch85)
+summary(fit2)
+```
+
+* 通常，在一个多元回归模型中增加一个变量会使得残差平方和减小，由于总的平方和保持不变，因此R方会增大；
+但是这里比较这两个模型拟合结果却发现R方变小了，思考这是为什么？
+
+答：因为经过数据清洗之后，可用的数据集变小了，$R^2$没有比较的意义
+
+* 我们继续分析该数据，下面这些问题是来自教材第3章习题4. 上面我们知道了这个数据里变量`age`里缺失值
+太多了，因此下面考虑的模型我们不纳入该变量，我们考虑如下的模型
+$$log(salary)=\beta_0+\beta_1LSAT+\beta_2GPA+\beta_3log(libvol)+\beta_4log(cost)+\beta_5rank+u$$
+其中，
+ 
+`LSAT`: 法学院入学考试成绩的中位数；
+
+`libvol`: 法学院图书馆的藏书量；
+
+`cost`: 法学院的每年学费；
+
+* 预期$\beta_5$的符号是正还是负？为什么？
+
+答：一般来说rank越高，预期的salary越低
+
+* 其它参数的符号预期如何？为什么？
+
+答：为正
+
+* 估计上述模型
+
+```{r}
+fit3 = lm(lsalary ~ LSAT + GPA + llibvol + lcost + rank, data = lawsch85)
+summary(fit3)
+```
+
+* 在其它条件不变的情况下，预计GPA中位数相差1分会导致薪水多大的差异？（百分比）
+
+答：24.75%
+
+* 解释变量$log(libvol)$的系数；
+
+答：libvol每加10%, salary加1%
+
+* 根据模型拟合的结果，你是否认为在报考法学院的时候需要考虑学院的排名？
+
+答：要考虑
+
+* 学院排名相差20位导致的薪水差异为多大？
+
+答：6.6%
+
+
+
+## 实验二
+
+第3章课后习题3，分析数据`sleep75`,考察影响睡眠时间的因素。模型为
+$$sleep=\beta_0+\beta_1totwrk+\beta_2edu+\beta_3age+u$$
+
+* 如果成年人为了工作而放弃睡眠，那么预期$\beta_1$的符号是什么？
+
+答：负
+
+* 你认为$\beta_2$和$\beta_3$符号应该是什么？说明你的理由；
+
+答：$\beta_2$指代教育程度的系数，一般来说学历越高休息越少，倾向于负数。$\beta_3$指代年龄的系数，因为不同年龄段睡眠时间差异较大，无法预测。
+
+* 利用数据，估计上述模型
+
+```{r}
+data("sleep75")
+head(sleep75)
+dim(sleep75)
+```
+
+```{r}
+?sleep75
+```
+
+```{r}
+fit4 = lm(sleep ~ totwrk + educ + age, data = sleep75)
+summary(fit4)
+```
+
+根据模型估计的结果，回答下列问题，
+
+* 在其它因素不变的情况下，如果1周多工作5个小时，预计sleep会减少多少分钟？这是一个很大的舍弃妈？
+
+答：-0.14837 * 5 * 60 = -44.5, 所以会少44.5min的睡眠
+
+* 讨论educ的系数符号和大小；
+
+答：负数，每多学习1年，平均睡眠减少了11min
+
+* 你能说totwrk，educ和age解释了sleep的大部分变异吗？还有什么其它因素可能影响睡眠时间？它们与totwrk可能相关吗？
+
+答：$R^2$ = 0.1134，显然回归的显著性不强，所以不能够完全解释。还可能和职业、生活习俗等有关系。
+
+## 实验三
+ 
+ 重新分析教材例3.2，数据为`wage1`,考虑的模型为
+ $$log(wage) = \beta_0+\beta_1educ+\beta_2exper+\beta_3tenure+u$$
+ 
+ * 拟合该模型
+ 
+```{r}
+data("wage1")
+dim(wage1)
+```
+ 
+```{r}
+?wage1
+```
+ 
+
+```{r}
+fit5 = lm(log(wage) ~ educ + exper + tenure, data =  wage1)
+summary(fit5)
+```
+  * 于是，educ前的系数0.092的意思是，在保持工作经验和任职年限这两个因素不变的情形下，多受一年
+  的教育，其工资预计会提高9.2%。这里保持其它因素不变的含义，就是要排除其它因素的影响，于是0.092就   是educ在排除exper和tenure的影响之后对log(wage)的影响，现在我们考虑另外一种排除其它因素影响的途径
+  
+  * 首先考虑回归 educ  ～exper + tenure，
+  其残差记为`res.educ`,我们知道，这个量就是educ-educ.hat的结果，它跟exper和tenure均不相关，它就是educ在排除exper和tenure因素影响之后剩余的部分
+  
+```{r}
+fit.educ = lm(educ ~ exper + tenure, data =  wage1)
+res.educ = resid(fit.educ)
+```
+
+* 第二步，考虑回归 log(wage) ~ res.educ ，然后我们观察回归系数
+
+```{r}
+fit6 = lm(log(wage) ~ res.educ, data =  wage1)
+summary(fit6)
+```
+
+我们看到这里的结果跟之前的拟合系数完全一致。 这不是巧合，我们在下一次理论课上将会证明这两个途径得到的educ对wage的影响估计在数学上是相等的。
+
+
+## 实验四
+
+`econmath`数据包含一所大型公立大学的学生在一门计量经济学课程的成绩以及表现，被解释变量为score，
+课程的最终成绩以百分制进行计算
+
+```{r}
+data(econmath)
+head(econmath)
+econmath = na.omit(econmath)
+```
+
+```{r}
+?econmath
+```
+
+
+* 统计有多少学生在这门课上得到了优秀的成绩？平均成绩是多少？
+
+```{r}
+top = econmath$score >= 85
+print(c(sum(top), mean(econmath$score)))
+```
+
+* 求`actmth`和`acteng`的平均值和标准差，并比较他们的大小；
+
+```{r}
+print(c(mean(econmath$actmth), mean(econmath$acteng), sd(econmath$actmth), sd(econmath$acteng)))
+```
+
+
+* 估计`score ~ colgpa + actmth + acteng`的线性回归模型，报告结果
+```{r}
+fit.lm = lm(score ~ colgpa + actmth + acteng, data = econmath)
+summary(fit.lm)
+```
+
+* 你是否认为ACT的数学或英语部分成绩中哪一个是预估计量经济学课程表现的更好预测变量？请解释
+
+答：ACT的数学成绩更能预测课程表现。t值=7.87
+
+* 讨论解释回归中的R方；
+
+答：回归效果只有39.7%，可见在大学GPA和ACT的数学成绩都高度拟合的情况下，英语成绩几乎没有参考价值。而且或许还存在其他变量，拟合后更能解释本课程的成绩。

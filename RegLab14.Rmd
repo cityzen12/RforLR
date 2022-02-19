@@ -1,0 +1,216 @@
+---
+title: "时间序列回归与自相关"
+author: "朱子灏2019193014"
+output:
+  html_document:
+    df_print: paged
+---
+
+# 预备知识
+
+* 复习本章讲义，掌握存在序列自相关性对OLS估计的影响；
+* 自相关性诊断的Breusch-Godfrey检验的原理和方法；
+* 广义最小二乘法的基本原理；
+
+# 上机实验
+
+## 实验一 通货膨胀率与失业率
+
+分析数据`phillips`，只使用至1996的数据. 课堂讲义里有分析这个数据。
+
+* 加载数据
+
+```{r}
+library("wooldridge")
+library(forecast)
+data("phillips")
+da = phillips
+da2=da[da$year<=1996,]
+```
+
+* 在同一个图上绘两个时间序列；
+```{r}
+plot(da2$year,da2$inf,type="l")
+lines(da2$year,da2$unem,type="l",col="red")
+```
+
+
+* 绘散点图；
+```{r}
+plot(da2$unem,da2$inf,type="p")
+```
+
+* 拟合回归`inf ~ unem`,观察残差时间序列及其ACF
+
+```{r}
+m1 = lm(inf ~ unem, data = da2)
+summary(m1)
+par(mfrow = c(1, 2))
+plot(resid(m1),type = "l")
+Acf(resid(m1))
+```
+
+* 对`inf`做差分，然后考虑回归`diff(inf) ~ unem`
+```{r}
+diff_inf = diff(da2$inf)
+new_unem = da2$unem[-1]
+m1.2 = lm(diff_inf ~ new_unem)
+summary(m1.2)
+```
+
+* 观察残差图及其ACF图，此时残差是否平稳？
+```{r}
+plot(resid(m1.2), type = 'l')
+tsdisplay(resid(m1.2))
+```
+
+* 对残差识别一个适当的AR模型，重新估计上述模型；
+```{r}
+m1.3 = Arima(resid(m1.2), order = c(2, 0, 0))
+summary(m1.3)
+Box.test(resid(m1.3), lag = 12, type = 'Ljung-Box', fitdf = 1)
+tsdisplay(resid(m1.3))
+```
+
+* 将模型化为下列形式
+
+$$inf_t-inf_t^e=\beta_1(unem_t-\mu_0)+e_t$$
+```{r}
+m1.4 = lm(inf ~ I(inf ^ exp(1)) + unem, data = da2)
+summary(m1.4)
+```
+理解并解释该模型的结果；
+
+## 实验二 美国的最低工资对波多黎各就业率的影
+
+研究美国的最低工资对波多黎各就业率的影响。这个例子在教材的第10章，11章和12章都有涉及。
+
+数据为`prminwge`
+
+变量描述如下：
+
+* prepop: 波多黎各就业率；
+* mincov：最低工资相对于平均工资的的重要性，定义为最低工资相对于平均工资的比例乘以平均工资覆盖
+率，即
+$$mincov = \frac{avgmin}{avgwage}\cdot avgcov$$
+* usgnp: 美国国民生产总值；
+* prgnp: 波多黎各国民生产总值
+
+```{r,message=FALSE}
+library(urca)
+library(lmtest)
+library(sandwich)
+data("prminwge")
+head(prminwge)
+```
+
+
+完成下列分析：
+
+(A) （例10.3）拟合下列模型：
+$$log(prepop_t) = \beta_0+\beta_1log(mincov_t)+\beta_2log(usgnp_t)+u_t$$
+解释系数$\beta_1$的含义，最低工资对失业率的影响是否显著？结果是否和预期相符？美国GNP对失业率的影响如何？是否显著？是否和预期相符？绘制残差的时间序列图，残差是否为平稳序列？模型是否充分？
+
+```{r}
+fit10.3 = lm(lprepop ~ lmincov + lusgnp, data = prminwge)
+summary(fit10.3)
+plot.ts(resid(fit10.3))
+tsdisplay(resid(fit10.3))
+test1 = ur.df(resid(fit10.3), type = "none", lags = 0)
+summary(test1)
+```
+
+* 答：在5%的检验水平下显然不能拒绝原假设，意味着残差是单位根非平稳序列。
+
+(B) 分别绘制绘制$log(prepop_t),log(mincov_t),log(usgnp_t)$的时序图，这些时间序列是否为单位根非平稳序列？
+$log(usgnp_t)$是否含有确定性的线性趋势？先拟合下列趋势模型
+$$log(usgnp_t)=\delta_0+\delta_1 t+u_t$$
+
+然后对其残差做单位根检验
+
+```{r}
+par(mfrow = c(2, 2))
+plot.ts(prminwge$lprepop)
+plot.ts(prminwge$lmincov)
+plot.ts(prminwge$lusgnp)
+t = 1:length(prminwge$year)
+fitB = lm(lusgnp ~ t, data = prminwge)
+summary(fitB)
+test2 = ur.df(resid(fitB), type = "none", lags = 0)
+summary(test2)
+tsdisplay(resid(fitB))
+```
+
+(C) （例10.9）在（A）中的模型里加入关于时间的线性趋势项
+，即考虑下列回归模型
+$$log(prepop_t) = \beta_0+\beta_1log(mincov_t)+\beta_2log(usgnp_t)+\delta t+u_t$$
+拟合模型并比较添加趋势之后，各参数及其标准差的变化情况，各变量显著性的变化，以及拟合优度系数的变化；观察残差时序图，残差是否平稳？这个模型是否充分？加入关于时间的线性趋势是否是个好主意？
+
+```{r}
+fit10.9 = lm(lprepop ~ lmincov + lusgnp + t, data = prminwge)
+summary(fit10.9)
+plot.ts(resid(fit10.9))
+tsdisplay(resid(fit10.9))
+test3 = ur.df(resid(fit10.9), type = 'none', lags = 0)
+summary(test3)
+```
+
+* 答：拟合优度得到了提高，观察残差的acf函数得到了很好的收敛
+
+(D) （第10章课后习题C3）在上述模型里增加变量$log(prgnp_t)$，即波多黎各的GNP的对数，考虑下列模型
+$$log(prepop_t) = \beta_0+\beta_1log(mincov_t)+\beta_2log(usgnp_t)+\beta_3log(prgnp)+\delta t+u_t$$
+估计模型，变量是否显著？解释系数的含义。增加这个变量对评估就业率的最低工资效应有何影响？观察该模型的残差时序图，其是否平稳？
+
+```{r}
+fit.C3 = lm(lprepop ~ lmincov + lusgnp + lprgnp + t, data = prminwge)
+summary(fit.C3)
+plot.ts(resid(fit.C3))
+tsdisplay(resid(fit.C3))
+test4 = ur.df(resid(fit.C3), type = 'none', lags = 0)
+```
+
+(E)（例12.2）检验上一问中的残差是否存在AR(1)形式的自相关.分别用t检验和BG检验
+```{r}
+res.C3 = resid(fit.C3)
+n = length(res.C3)
+fit.BG = lm(res.C3[-1] ~ log(mincov)[-1] + log(usgnp)[-1] + log(prgnp)[-1] + t[-1] + res.C3[-n], data = prminwge)
+LM = (n-1) * summary(fit.BG)$r.square
+pvalue.BG = pchisq(LM, df = 1, lower.tail = FALSE)
+pvalue.BG
+
+mE = Arima(res.C3, order = c(1, 0,0))
+Box.test(resid(mE), type = 'Ljung-Box', lag = 6, fitdf = 1)
+
+bgtest(fit.C3, order = 1, fill = NA)
+```
+
+(F) 考虑回归残差的自相关性，用ARMAX模型重新估计上述模型，比较参数估计的结果是否发生很大变化.
+```{r}
+fit.F = Arima(res.C3, order = c(1, 1, 1))
+summary(fit.F)
+tsdisplay(resid(fit.F))
+Box.test(resid(fit.F), type = 'Ljung-Box', fitdf = 2, lag = 6)
+```
+
+(G) 用广义差分法来重新估计上述模型
+```{r}
+res.C3 = resid(fit.C3)
+n = length(res.C3)
+lm(res.C3[-1] ~ res.C3[-n] + 0)
+rho = 0.4197
+lnprepop = log(prminwge$prepop)
+lnmincov = log(prminwge$mincov)
+lnusgnp = log(prminwge$usgnp)
+lnprgnp = log(prminwge$prgnp)
+lnprepop.1 = lnprepop[-1] - rho * lnprepop[-n]
+lnmincov.1 = lnmincov[-1] - rho * lnmincov[-n]
+lnusgnp.1 = lnusgnp[-1] - rho * lnusgnp[-n]
+lnprgnp.1 = lnprgnp[-1] - rho * lnprgnp[-n]
+fit.GLS = lm(lnprepop.1 ~ lnmincov.1 + lnusgnp.1 + lnprgnp.1 + t[-1])
+plot.ts(resid(fit.GLS))
+tsdisplay(resid(fit.GLS))
+summary(fit.GLS)
+```
+
+
+

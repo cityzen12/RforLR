@@ -1,0 +1,208 @@
+---
+title: 'RLab09: 联合显著性检验'
+author: "朱子灏2019193014"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## 预备
+
+* 复习F检验的原理，方法和计算
+* 复习OLS估计的大样本性质
+* 复习LM检验的原理，方法和计算
+
+## 实验一
+
+重复讲义中的棒球运动员工资影响因素分析一例。首先百度检索了解棒球运动的基本知识和术语，
+然后完成下列练习。这些练习的一部分是讲义中的例子，一部分是第三章课后习题C5，数据名为
+`mlb1`(MLB1小写).
+
+* 加载数据并熟悉变量的含义
+
+```{r}
+library("wooldridge")
+```
+
+
+* 拟合模型M1: `log(salary) ~ years + gamesyr + bavg + hrunsyr + rbisyr`, 各变量的显著性如何？
+```{r}
+M1 = lm(lsalary ~ years + gamesyr + bavg + hrunsyr + rbisyr, data = mlb1)
+summary(M1)
+```
+
+* 什么是回归模型的总体显著性？上述模型的总体显著性如何？
+* 答：是模型中所有变量都是否显著的指标。上述模型的总体显著性较差。
+
+* 在上面的模型里去掉变量`rbisyr`, 称为模型M2，拟合该模型并观察变量`hrunsyr`的显著性；
+```{r}
+M2 = lm(lsalary ~ years + gamesyr + bavg + hrunsyr, data = mlb1)
+summary(M2)
+```
+
+* 对比上述两个模型，你认为模型M1中变量`hrunsyr`不显著的原因可能是什么？
+* 答：`rbisyr`和`hrunsyr`的相关系数较大，同时存在两个变量时可能存在互相的影响，导致一个变量不显著
+
+* 计算变量`hrunsyr`和`rbisyr`之间的相关系数；
+```{r}
+cor(mlb1$hrunsyr, mlb1$rbisyr)
+```
+
+* 对于模型M1,检验`bavg,hrunsyr,rbisyr`（场上表现）的联合显著性；重复讲义中的两种做法：(1)逐步用公式
+计算F统计量及P值(2)用`anova`函数直接进行上述检验；
+```{r}
+Mr = lm(lsalary ~ years + gamesyr, data = mlb1)
+res.m1 = M1$residuals
+RSS.m1 = sum(res.m1 ^ 2)
+res.r = Mr$residuals
+RSS.r = sum(res.r ^ 2)
+n = nrow(mlb1)
+f = ((RSS.r - RSS.m1) / 3) / ((RSS.m1) / (n - 5 - 1))
+pvalue = pf(f, df1 = 3, df2 = n - 5 - 1, lower.tail = F)
+pvalue
+```
+```{r}
+anova(M1, Mr)
+```
+
+* 用LM检验上述问题；
+```{r}
+LM = summary(M1)$r.squared * n
+pvalue = pchisq(LM, df = 3, lower.tail = F)
+pvalue
+```
+
+
+* 在模型M2中增加变量`runsyr,fldperc,sbasesyr`，即考虑模型M3: `log(salary) ~ years + gamesyr + bavg + hrunsyr + runsyr + fldperc + sbasesyr`
+拟合新的模型，此时各变量的显著性如何？
+```{r}
+M3 = lm(lsalary ~ years + gamesyr + bavg + hrunsyr + runsyr + fldperc + sbasesyr, data = mlb1)
+summary(M3)
+```
+
+
+* 对模型M3，检验变量`bavg,fldperc,sbasesyr`的联合显著性.
+```{r}
+Mr2 = lm(lsalary ~ years + gamesyr + hrunsyr + runsyr, data = mlb1)
+anova(M3, Mr2)
+```
+
+* 阅读讲义中关于F检验和R方之间的关系，用R方重新计算上述问题的检验统计量，看两种途径得到的结果是否一致？
+```{r}
+R2.ur = summary(M3)$r.square
+R2.r = summary(Mr2)$r.square
+F2 = ((R2.ur - R2.r) / 3) / ((1 - R2.ur)/(n - 5 - 1))
+F2
+```
+
+
+## 实验二
+
+分析数据`htv`，我们在第6周的上机课里分析过这个数据，我们要研究父母的受教育水平对小孩受教育水平的影响.
+
+* 拟合模型
+$$educ = \beta_0+\beta_1motheduc+\beta_2fatheduc+\beta_3abil+\beta_4abil^2+u$$
+```{r}
+M4 = lm(educ ~ motheduc + fatheduc + abil + I(abil^2), data = htv)
+summary(M4)
+```
+* 检验原假设`educ`和`abil`之间是线性关系，对立假设为`educ`和`abil`之间的关系为二次形式；
+$H_0 : educ = \beta_1 abil  \leftrightarrow   H_1: educ = \beta_1 abil^2$
+```{r}
+test1 = lm(educ ~ abil, data = htv)
+test2 = lm(educ ~ I(abil ^ 2), data = htv)
+summary(test1)$r.squared > summary(test2)$r.squared
+```
+* 答：是线性关系的
+
+
+* 检验假设：父母的受教育年限对小孩的受教育年限的影响是一样的，考虑双边假设检验问题；
+$H_0: \beta_f = \beta_m \leftrightarrow H_1 : \beta_f \not= \beta_m$
+```{r}
+M4.sum = summary(M4)
+C = M4.sum$cov.unscaled
+beta = coef(M4)
+sigma = M4.sum$sigma
+theta = beta[2] - beta[3]
+se.theta = sigma * sqrt(C[2, 2] + C[3, 3] - 2 * C[2, 3])
+t.theta = theta / se.theta
+pt(t.theta, df = M4$df.residual, lower.tail = T)
+```
+
+* 在模型中增加学费变量`tuit17`和`tuit18`，重估模型并检验他们的联合显著性；
+```{r}
+M5 = lm(educ ~ motheduc + fatheduc + abil + I(abil ^ 2) + tuit17 + tuit18, data = htv)
+summary(M5)
+anova(M4, M5)
+```
+
+
+* 计算`tuit17`和`tuit18`之间的相关系数，解释为什么在实际建模中采用这两年的学费的平均值更好？
+```{r}
+cor(htv$tuit17, htv$tuit18)
+```
+* 答：他们具有强相关性，实际上可以看做几乎是相同分布的变量，所以使用平均值作为变量可能可以得到更显著的拟合结果。
+
+* 样本中`educ`有哪些不同取值？这个变量是否服从一个连续分布？
+```{r}
+summary(htv$educ)
+```
+
+* 绘制`educ`的直方图，并附上相应的正态分布密度函数，`educ`是否可以近似为正态分布？
+```{r}
+hist(htv$educ)
+```
+
+* 答：显然是不可以的
+
+* 经典线性模型的哪些假设在这个问题中可能不成立？会给我们的推断带来什么后果？你认为应该如何改进模型或改进模型推断方法？
+* 答：我预测`0均值假设`不会成立，这样模型就会出现不准确的问题，产生较大的误差。应该优化拟合模型中变量的选择，对于相关系数较大的变量进行统一的求均值之后变量代换处理。
+
+## 实验三
+
+分析数据`econmath`.
+
+* 变量`score`的理论取值范围是什么？样本中`score`的最大值和最小值分别是什么？
+* 答：理论是0-100
+```{r}
+print(c(min(econmath$score), max(econmath$score)))
+```
+
+* 绘制`score`的频率直方图；假设其服从正态分布，估计均值和方差，在直方图上绘制出所拟合的正态分布曲线；
+```{r}
+x = seq(min(econmath$score), max(econmath$score), length = nrow(econmath))
+mean = mean(econmath$score)
+var = var(econmath$score)
+sd = sd(econmath$score)
+y = dnorm(x, mean = mean, sd = sd)
+hist(econmath$score)
+plot(dnorm(x, mean = mean, sd = sd), lwd = 2)
+```
+
+* 考虑线性回归模型
+$$score= \beta_0+\beta_1 colgpa +\beta_2 actmth +\beta_3 acteng +u$$
+能否假定随机误差$u$满足正态假设MLR.6？如果用通常的t检验来检验`acteng`对`score`的影响是否显著，后果如何？
+* 答：可以假设，用t检验效果没有用F检验好。
+
+* 拟合上述模型，检验`acteng`对`score`是否显著的影响.
+```{r}
+lm = lm(score ~ colgpa + actmth + acteng, data = econmath)
+summary(lm)
+```
+```{r}
+lm2 = lm(score ~ colgpa + actmth, data = econmath)
+anova(lm, lm2)
+```
+
+* 把上面模型里的`score`替换为`log(score)`是否是一个好的办法？说明你的理据.
+* 答：不是好方法，`acteng`的`p`值依旧显示此变量不显著
+```{r}
+lm3 = lm(log(score) ~ colgpa + actmth + acteng, data = econmath)
+summary(lm3)
+```
+

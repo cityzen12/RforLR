@@ -1,0 +1,279 @@
+---
+title: "RLab：回归中的异方差与加权最小二乘估计"
+author: "朱子灏2019193014"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook:
+    toc: yes
+---
+
+# 首先阅读本周讲义或者教材第8章全部内容.
+
+
+# 练习一
+
+分析课本中的例8.4，研究住房价格的影响因素，数据文件为`hprice1`；(考察异方差，异方差相合误差估计，异方差检验)
+
+* 加载数据
+```{r, warning = FALSE, message = FALSE}
+require(wooldridge)
+require(lmtest)
+require(sandwich)
+```
+```{r}
+head(hprice1)
+```
+
+* 用OLS法拟合模型（I）
+
+$$price = \beta_0+\beta_1 lotsize+\beta_2 sqrft+\beta_3 bdrms+u$$
+这里输出的结果是在经典线性模型假设下得到的.
+```{r}
+fit1 = lm(price ~ lotsize + sqrft + bdrms, data = hprice1)
+summary(fit1)
+```
+
+* 加载`lmtest`包，用`coeftest`函数查看参数的显著性检验结果，用正态分布来近似t分布；
+```{r}
+coeftest(fit1, df = Inf)
+```
+
+
+* 加载`sandwich`包，求异方差稳健的标准误差估计，并得到异方差稳健的t检验；(提示：函数`vcovHC`)
+```{r}
+vcovHC(fit1, type = 'HC')
+coeftest(fit1, df = Inf, vcov. = vcovHC(fit1, type = 'HC'))
+```
+
+
+* 比较各变量的显著性结果是否变化较大？
+
+* 答：不大
+
+* 绘制残差与自变量之间的散点图，能否发现异方差的证据？
+```{r}
+res1 = resid(fit1)
+par(mfrow = c(2, 2))
+plot(fitted(fit1), res1)
+plot(hprice1$lotsize, res1)
+plot(hprice1$bdrms, res1)
+plot(hprice1$sqrft, res1)
+```
+
+
+* 用Breusch-Pagan Test检验上述模型I是否存在异方差性；（提示：`bptest`函数）
+```{r}
+bptest(fit1)
+```
+
+* 用White Test检验模型I中的异方差性；（提示：`bptest`函数）
+```{r}
+bptest(fit1, ~ I(lotsize^2) + I(sqrft^2) + I(bdrms^2) + lotsize*sqrft + sqrft*bdrms + lotsize*bdrms, data = hprice1)
+```
+
+* 比较`price`和`log(price)`的直方图；(函数`hist`)
+```{r}
+hist(hprice1$price)
+hist(hprice1$lprice)
+```
+* 考虑下列对数变换之后的回归模型（II），估计并检验模型的异方差性；
+
+$$log(price) = \beta_0+\beta_1 log(lotsize)+\beta_2 log(sqrft)+\beta_3 bdrms+u$$
+```{r}
+fit1.2 = lm(lprice ~ llotsize + lsqrft + bdrms, data = hprice1)
+summary(fit1.2)
+```
+
+* 对模型II,求异方差稳健的标准误和t检验，并与`lm`函数输出的结果进行比较.
+```{r}
+coeftest(fit1.2, df = Inf)
+coeftest(fit1.2, df = Inf, vcov. = vcovHC(fit1.2, type = 'HC'))
+```
+
+* 检验模型II是否存在异方差
+```{r}
+bptest(fit1.2)
+```   
+
+# 练习二
+
+根据我的讲义，重复教材中例8.6中的分析
+
+* 加载数据`k401ksubs`
+```{r}
+data("k401ksubs")
+```
+
+* 拟合下列模型I，求其异方差稳健的标准误和t检验
+$$nettfa = \beta_0+\beta_1 inc+u$$
+```{r}
+fit2 = lm(nettfa ~ inc, data = k401ksubs)
+summary(fit2)
+coeftest(fit2, df = Inf)
+coeftest(fit2, df = Inf, vcov. = vcovHC(fit2, type = 'HC'))
+```
+
+* 假设异方差的形式为$Var(u|inc)=\sigma^2 inc$,用加权最小二乘法求模型I的参数估计；
+```{r}
+fit2.1 = lm(nettfa ~ inc, weights = 1/inc, data = k401ksubs)
+summary(fit2.1)
+coeftest(fit2.1, vcov. = vcovHC(fit2.1, type = "HC") )
+```
+
+* 考虑下列模型II，分别用OLS和WLS求回归参数的估计，如果使用OLS法，则求相应的异方差稳健的标准误差和t检验；
+
+$$nettfa = \beta_0+\beta_1 inc+\beta_2(age-25)^2+\beta_3 male+\beta_4 e401k+u$$
+
+* `OLS`法
+```{r}
+fit2.2 = lm(nettfa ~ inc + I((age-25)^2) + male + e401k, data = k401ksubs)
+summary(fit2.2)
+coeftest(fit2.2, df = Inf, vcov. = vcovHC(fit2.2, type = "HC"))
+```
+
+* `WLS`法
+
+```{r}
+fit2.3 = lm(nettfa ~ inc + I((age-25)^2) + male + e401k, weights = 1/inc, data = k401ksubs)
+summary(fit2.3)
+```
+
+# 练习三
+
+根据我的讲义，重复教材例8.7中的分析数据`smoke`
+
+* 读取数据
+```{r}
+data(smoke)
+```
+
+* 用OLS法估计下列模型(I)
+
+$$cigs = \beta_0+\beta_1 log(income)+\beta_2 log(cigpric)+ \beta_3 educ+\beta_4 age+\beta_5 age^2+\beta_6restaurn+u$$
+```{r}
+fit3 = lm(cigs ~ lincome + lcigpric + educ + age + I(age^2) + restaurn, data = smoke)
+summary(fit3)
+```
+
+* 检验模型I中是否存在异方差
+```{r}
+bptest(fit3)
+```
+
+* 用FGLS法来求模型I的加权最小二乘估计
+```{r}
+u.hat = resid(fit3)
+g = log(u.hat^2)
+m.aux = lm(g ~ lincome + lcigpric + educ + age + I(age^2) + restaurn, data = smoke)
+g.hat = fitted(m.aux)
+h.hat = exp(g.hat)
+fit3_wls = lm(cigs ~ lincome + lcigpric + educ + age + I(age^2) + restaurn, weights = 1/h.hat, data = smoke)
+summary(fit3_wls)
+```
+
+# 练习四
+
+以`p176.txt`数据为例，来说明异方差性的诊断检验以及WLS估计；这个数据统计了27家工业企业中的主管人数(Y)和工人人数(X),它们的散点图如下
+```{r}
+da4 = read.table("P176.txt",header = T)
+head(da4)
+X = da4[,1]
+Y = da4[,2]
+plot(X,Y,type="p")
+```
+
+我们假设这两个变量之间的关系为(I)
+$$Y=\beta_0+\beta_1X+u$$
+按照下列步骤完成分析，并回答问题：
+
+(A) 用OLS法估计上述模型；
+```{r}
+fit4 = lm(Y ~ X, data = da4)
+summary(fit4)
+```
+
+(B) 分别用BP检验和WHITE检验模型是否存在异方差性；(提示：用`lmtest`包中的`bptest`函数)
+
+```{r}
+bptest(fit4)
+bptest(fit4 , ~ I(X^2), data = da4)
+```
+
+(C) 绘制残差对X的散点图，观察是否存在异方差以及异方差的形式；
+
+```{r}
+plot(X, resid(fit4))
+```
+
+
+(D) 求OLS估计的异方差稳健标准误以及相应的t检验，跟通常的t检验结果进行比较；(用sandwich包中的`vcovHC`函数)
+
+```{r}
+vcovHC(fit4, type = "HC")
+coeftest(fit4)
+coeftest(fit4, vcov. = vcovHC(fit4, type = "HC"))
+```
+
+
+(E) 假设异方差具有形式$Var(u|x)=\sigma^2 x^2$,应如何变换模型消除异方差性？写出变换后的模型；
+
+```{r}
+fit4.1 = lm(Y ~ X, weights = 1/(X^2), data = da4)
+summary(fit4.1)
+```
+
+(F) 用OLS法估计变换后的模型从而得到原模型的参数估计；
+
+```{r}
+coeftest(fit4.1)
+```
+
+
+(G) 对原模型直接应用加权最小二乘法(WLS)来进行估计，同E步的结果是否一致？
+
+```{r}
+u.hat = resid(fit4)
+g = sqrt(u.hat^2)
+m.aux = lm(g ~ X, data = da4)
+g.hat = fitted(m.aux)
+h.hat = (g.hat)^2
+fit4.1_wls = lm(Y ~ X, weights = 1/h.hat, data = da4)
+summary(fit4.1_wls)
+```
+
+
+(H) 考虑另一种方式建立Y和X之间的关系(II)：
+$$log(Y)=\beta_0+\beta_1X+u$$
+先用散点图来说明上述模型的合理性；
+```{r}
+plot(X,log(Y))
+```
+
+
+```{r}
+fit4.2 = lm(log(Y) ~ X, data = da4)
+summary(fit4.2)
+```
+
+再次绘制残差散点图
+
+```{r}
+par(mfrow = c(2, 1))
+plot(X, resid(fit4.2))
+plot(fitted(fit4.2), resid(fit4.2))
+```
+
+
+(I) 考虑二次多项式模型(III)，估计下列对数二次模型，观察残差图
+$$log(Y)=\beta_0+\beta_1X+\beta_2X^2+u$$
+```{r}
+fit4.3 = lm(log(Y) ~ X + I(X^2), data = da4)
+summary(fit4.3)
+par(mfrow = c(3, 1))
+plot(X, resid(fit4.3))
+plot(X^2, resid(fit4.3))
+plot(fitted(fit4.3), resid(fit4.3))
+```
+

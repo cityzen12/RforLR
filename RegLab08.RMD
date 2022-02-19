@@ -1,0 +1,170 @@
+---
+title: 'RLab08: t检验'
+author: "朱子灏2019193014"
+output:
+  html_document:
+    df_print: paged
+---
+
+## 预备
+
+* 复习t检验的原理和方法；
+* 复习P值的原理和计算方法；
+* 复习置信区间的原理和方法；
+```{r}
+require(wooldridge)
+```
+
+## 实验一
+
+阅读教材中的例4.1；模型为
+
+$$log(wage) =  \beta_0+\beta_1educ + \beta_2exper+\beta_3tenure+u$$
+该模型的拟合结果见教材99页(英文版111页)
+```{r}
+lm.fit1 = lm(lwage ~ educ + exper + tenure, data = wage1)
+fit1.summary = summary(lm.fit1)
+```
+
+* 我们想知道在控制了`educ`和`tenure`之后，`exper`的边际回报是为零还是为正，用参数来表示该假设检验的原假设和对立假设；
+原假设$H_0 : \beta_2 = 0$
+对立假设$H_1 : \beta_2 > 0$
+
+* 根据教材中报告的参数估计及标准误差的结果，计算t检验统计量的值；
+```{r}
+t = 0.0041/0.0017
+t
+```
+
+* 计算该假设检验的P值，并根据该P值对上述假设检验问题作出结论；
+```{r}
+p.value = pt(t, df = nrow(wage1) - 4, lower.tail = F)
+p.value
+```
+$p = 0.008<\alpha$，可以拒绝原假设
+
+* 评述`exper`回报的统计显著性和实际显著性.
+`exper`有统计显著性，0.4%的增幅也符合现实
+
+* 用`lm`函数来拟合模型，并用`summary`函数来输出拟合结果，验证你上述的计算是否正确（数据为`wage1`）；
+```{r}
+fit1.summary$coefficients['exper',4] / 2
+```
+
+## 实验二
+
+这是教材中的例4.2；研究学校规模对学生成绩的影响，一种观点是较小的学校对学生的学习比规模大的学校更为有利，我们要通过数据实证分析来验证这一点，数据为`meap93`;
+
+* 了解数据中变量`amth10,totcomp,staff,enroll`的实际含义；
+```{r}
+#?meap93
+```
+
+* 把问题表示为一个统计假设检验问题；
+$H_0 : \beta_e = 0$
+$H_0 : \beta_e \not= 0$
+
+* 拟合模型`math10 ~ totcomp + staff + enroll`，并检验上述问题；
+```{r}
+lm.fit2 = lm(math10 ~ totcomp + staff + enroll, data = meap93)
+summary(lm.fit2)
+```
+p = 0.1795，不显著
+
+* 拟合模型`math10 ~ log(totcomp) + log(staff) + log(enroll)`，重新检验上述问题；
+```{r}
+lm.fit3 = lm(math10 ~ log(totcomp) + log(staff) + log(enroll), data = meap93)
+summary(lm.fit3)
+```
+p = 0.034，检验是显著的
+
+* 比较两个模型的结果，你有什么看法？
+有时候用对数变换会得到更合理的结果
+
+
+## 实验三
+
+本例是课本上4.4节中的例子，数据为`twoyear`,加载并了解数据中的变量.
+```{r}
+data("twoyear")
+#?twoyear
+```
+
+考虑下列模型
+$$log(wage)=\beta_0+\beta_1jc+\beta_2univ+\beta_3exper+u$$
+
+* 拟合上述模型，各变量的显著性怎样？
+```{r}
+lm.fit4 = lm(lwage ~ jc + univ + exper, data = twoyear)
+summary(lm.fit4)
+```
+这些变量都很显著
+
+* 检验大专的边际回报不如大学. 这个问题可以表示成下列假设检验问题
+$$H_0:\beta_1=\beta_2\leftrightarrow H_1:\beta_1<\beta_2$$
+
+阅读讲义，分别用讲义里介绍的两种方法来检验上述假设.
+
+* 方法一
+```{r}
+lm.fit4.sum = summary(lm.fit4)
+C = lm.fit4.sum$cov.unscaled
+beta = coef(lm.fit4)
+sigma = lm.fit4.sum$sigma
+theta = beta[2]-beta[3]
+se.theta = sigma * sqrt(C[2, 2] + C[3, 3] - 2 * C[2, 3])
+t.theta = theta / se.theta
+pt(t.theta, df = lm.fit4$df.residual, lower.tail = T)
+```
+
+* 方法二
+```{r}
+lm.fit4.1 = lm(lwage ~ jc + totcoll + exper, data = twoyear)
+lm.fit4.1.sum = summary(lm.fit4.1)
+lm.fit4.1.sum$coefficients[2, 4] / 2
+```
+
+
+## 实验四
+
+这是教材第三章课后习题C1,数据名为`vote1`，研究竞选经费支出对选举结果的影响。
+
+* 先加载数据并了解数据中的变量含义.
+```{r}
+data("vote1")
+#?vote1
+```
+* 考虑下列模型
+$voteA=\beta_0+\beta_1log(expendA)+\beta_2log(expendB)+\beta_3prtystrA+u$
+$\beta_1,\beta_2$的实际意义分别是什么？
+两个值在voteA固定下的边际回报
+
+* 利用数据拟合上述模型，各个变量的显著性如何？
+```{r}
+lm.fit5 = lm(voteA ~ log(expendA) + log(expendB) + prtystrA, data = vote1)
+summary(lm.fit5)
+```
+除了百分比，其他变量拟合都很显著
+
+* 如果我们想知道A的竞选支出提高1%会否被B的支出提高1%所抵消，应如何表示成一个假设检验问题？写出原假设和对立假设.
+$H_0 : \beta_1 + \beta_2 = 0 v.s. H1 : \beta_1 +\beta_2 \not= 0$
+
+* 类似于上一个例子，用两种方法检验上述假设.你的结论是什么？
+```{r}
+lm.fit5.sum = summary(lm.fit5)
+C = lm.fit5.sum$cov.unscaled
+sigma = lm.fit5.sum$sigma
+beta = coef(lm.fit5)
+t.theta = beta[2] + beta[3]
+se.theta = sigma * sqrt(C[2, 2] + C[3, 3] + 2 * C[2, 3])
+t.theta=t.theta / se.theta
+pt(t.theta, df = lm.fit5$df.residual, lower.tail = T)
+```
+
+```{r}
+nvote1 = vote1
+nvote1$logsubAB = log(nvote1$expendB) - log(nvote1$expendA)
+lm.fit5.1 = lm(voteA~log(expendA) + logsubAB + prtystrA, data = nvote1)
+lm.fit5.1.sum = summary(lm.fit5.1)
+lm.fit5.1.sum$coefficients[2, 4] / 2
+```
